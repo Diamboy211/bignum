@@ -1,4 +1,4 @@
-export default class fp
+class fp
 {
   static _div = 2n ** 64n;
   static _lut = [];
@@ -124,19 +124,59 @@ export default class fp
     s.n = s._pow2().n << i;
     return s;
   }
+  static floor(a)
+  {
+    let s = new fp(0);
+    s.n = (a.n / fp._div) * fp._div;
+    return s;
+  }
+  static ceil(a)
+  {
+    let s = new fp(0);
+    s.n = ((a.n + fp._div - 1) / fp._div) * fp._div;
+    return s;
+  }
+  static max(a, b)
+  {
+    let s = new fp(0);
+    s.n = Math.max(a.n, b.n);
+    return s;
+  }
+  static min(a, b)
+  {
+    let s = new fp(0);
+    s.n = Math.min(a.n, b.n);
+    return s;
+  }
 }
 
-class BigNumber
+export default class BigNumber
 {
   constructor(n)
   {
     if (typeof(n) == "number")
     {
-      this.e = Math.log2(n);
+      this.e = new fp(Math.log2(n));
     }
     if (typeof(n) == "string")
     {
-      
+      let a = n.split('e');
+      if (a.length == 1)
+      {
+        // assume logarithm notation
+        this.e = new fp(Number(a[0]));
+      }
+      if (a.length == 2)
+      {
+        // assume scientific notation
+        this.e = new fp(Number(a[1]) + Math.log2(a[0]))
+      }
     }
+  }
+  toString()
+  {
+    let e = fp.floor(this.e);
+    let m = fp.sub(this.e, e)._pow2();
+    return (Number(m.n) / Number(fp._div)).toFixed(2) + ' * 2 ^ ' + Number(e.n / fp._div);
   }
 }
