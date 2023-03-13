@@ -1,6 +1,8 @@
-class fp
+export class fp
 {
-  static _div = 2n ** 64n;
+  static _sh = 64n;
+  static _div = 1n << fp._sh;
+  static _floor_mask = ~(fp._div - 1n);
   static _lut = [];
   constructor(n)
   {
@@ -63,6 +65,12 @@ class fp
     s.n = r;
     return s;
   }
+  static log2p1(a)
+  {
+    let s = fp.copy(a);
+    s.n += fp._div;
+    return fp.log2(s);
+  }
   static sqrt(a)
   {
 	  let pn = a.n, n = a.n / 2n, d;
@@ -117,7 +125,7 @@ class fp
   static pow2(a)
   {
     let n = a.n;
-    let i = n / fp._div;
+    let i = fp.floor(a).n / fp._div;
     let f = n - i * fp._div;
     let s = new fp(0);
     s.n = f;
@@ -127,49 +135,79 @@ class fp
   static floor(a)
   {
     let s = new fp(0);
-    s.n = (a.n / fp._div) * fp._div;
+    s.n = a.n & fp._floor_mask;
     return s;
   }
   static ceil(a)
   {
     let s = new fp(0);
-    s.n = ((a.n + fp._div - 1) / fp._div) * fp._div;
+    s.n = (a.n + fp._div - 1n) & fp._floor_mask;
     return s;
   }
   static max(a, b)
   {
     let s = new fp(0);
-    s.n = Math.max(a.n, b.n);
+    s.n = a.n;
+    if (a.n < b.n) s.n = b.n;
     return s;
   }
   static min(a, b)
   {
     let s = new fp(0);
-    s.n = Math.min(a.n, b.n);
+    s.n = a.n;
+    if (a.n > b.n) s.n = b.n;
     return s;
   }
+  static copy(a)
+  {
+    let s = new fp(0);
+    s.n = a.n;
+    return s;
+  }
+  add(b) { return fp.add(this, b); }
+  sub(b) { return fp.sub(this, b); }
+  mul(b) { return fp.mul(this, b); }
+  div(b) { return fp.div(this, b); }
+  log2() { return fp.log2(this); }
+  log2p1() { return fp.log2p1(this); }
+  sqrt() { return fp.sqrt(this); }
+  pow2() { return fp.pow2(this); }
+  floor() { return fp.floor(this); }
+  ceil() { return fp.ceil(this); }
+  max(b) { return fp.max(this, b); }
+  min(b) { return fp.min(this, b); }
+  copy() { return fp.copy(this); }
 }
 
-export default class BigNumber
+export class BigNumber
 {
+  static l10_l2 = new fp(10).log2().div(new fp(2).log2());
   constructor(n)
   {
+    if (n == undefined) this.e = 0;
     if (typeof(n) == "number")
     {
-      this.e = new fp(Math.log2(n));
+      this.e = new fp(n).log2();
     }
     if (typeof(n) == "string")
     {
       let a = n.split('e');
       if (a.length == 1)
       {
-        // assume logarithm notation
-        this.e = new fp(Number(a[0]));
+        this.e = new fp(Number(a[0])).log2();
       }
       if (a.length == 2)
       {
-        // assume scientific notation
-        this.e = new fp(Number(a[1]) + Math.log2(a[0]))
+        if (a[0].length == 0)
+        {
+          // assume logarithm notation
+          this.e = new fp(Number(a[1])).mul(BigNumber.l10_l2);
+        }
+        else
+        {
+          // assume scientific notation
+          this.e = new fp(Number(a[1])).mul(BigNumber.l10_l2).add(new fp(Number(a[0])).log2());
+        }
       }
     }
   }
@@ -177,6 +215,40 @@ export default class BigNumber
   {
     let e = fp.floor(this.e);
     let m = fp.sub(this.e, e)._pow2();
-    return (Number(m.n) / Number(fp._div)).toFixed(2) + ' * 2 ^ ' + Number(e.n / fp._div);
+    return (Number(m.n) / Number(fp._div)).toFixed(4) + ' * 2 ^ ' + Number(e.n / fp._div);
+  }
+  static copy(a)
+  {
+    let s = new BigNumber;
+    s.e = fp.copy(a.e);
+    return s;
+  }
+  static max(a, b)
+  {
+    let s = new BigNumber;
+    s.e = fp.max(a.e, b.e);
+    return s;
+  }
+  static min(a, b)
+  {
+    let s = new BigNumber;
+    s.e = fp.min(a.e, b.e);
+    return s;
+  }
+  static add(a, b)
+  {
+    let s = new BigNumber;
+    let m = fp.min(a.e, b.e);
+    let n = fp.max(a.e, b.e);
+    s.e = m.sub(n).pow2().log2p1().add(n);
+    return s;
+  }
+  static sub(a, b)
+  {
+    let s = new BigNumber;
+    let m = fp.min(a.e, b.e);
+    let n = fp.max(a.e, b.e);
+    s.e = m.sub(n).pow2().log2p1().add(n);
+    return s;
   }
 }
