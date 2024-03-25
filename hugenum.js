@@ -49,7 +49,12 @@ export default class HugeNumber
 	_string(x)
 	{
 		if (!x) return;
-		let a = x.split('e').map(e => e == '' ? new HugeNumber(1) : new HugeNumber(+e));
+		let a = x.split('e').map(e =>
+		{
+			if (e == '') return new HugeNumber(1);
+			if (e == '-') return new HugeNumber(-1);
+			return new HugeNumber(+e)
+		});
 		let r = a.pop();
 		while (a.length)
 			r = HugeNumber.mul(a.pop(), HugeNumber.pow10(r));
@@ -81,11 +86,70 @@ export default class HugeNumber
 		{
 			f--;
 			r = 10 ** r;
-			if (Math.abs(r) == Infinity) return r;
+			if (Math.abs(r) == Infinity) break;
 		}
 		r = 10 ** (s * r);
 		if (this.s) r *= -1;
 		return r;
+	}
+	toString()
+	{
+		if (this.e == -Infinity) return '0';
+		if (this.e == Infinity) return this.s ? "-Infinity" : "Infinity";
+		if (Math.abs(this.e) < 2.3010299956639813)
+			return this.toNumber().toString();
+		let s = this.s ? '-' : '';
+		if (this.e > 2 && this.e < 3)
+		{
+			let e = new HugeNumber(this);
+			e.e -= 1;
+			e = e.floor();
+			let d = new HugeNumber(e);
+			d.e += 1;
+			let m = this.div(d).toNumber();
+			e = Math.round(e.toNumber());
+			if (m >= 10) m /= 10, e++;
+			s = `${s}${m}e+${e}`;
+		}
+		else if (this.e > -3 && this.e < -2)
+		{
+			let e = new HugeNumber(this);
+			e.e = -e.e - 1;
+			e = e.ceil();
+			let d = new HugeNumber(e);
+			d.e += 1;
+			let m = this.mul(d).toNumber();
+			e = Math.round(e.toNumber());
+			if (m >= 10) m /= 10, e--;
+			s = `${s}${m}e-${e}`;
+		}
+		else if (Math.abs(this.e) < 5.3010299956639813)
+		{
+			let e = new HugeNumber(this);
+			e.s = false;
+			e = e.log10();
+			s = `${s}e${e.s ? "-" : "+"}${e.abs()}`;
+		}
+		else if (this.e > 0)
+		{
+			let e = Math.floor(this.e - 1.121303490395155);
+			let m = new HugeNumber;
+			m.e = this.e - e;
+			s = `${s}(e^${e})${m}`;
+		}
+		else
+		{
+			let e = Math.floor(-1.301029995663981 - this.e);
+			let m = new HugeNumber;
+			m.e = -this.e - e;
+			s = `${s}e-(e^${e-1})${m}`;
+		}
+		return s;
+	}
+	toFixed(d = 0)
+	{
+		if (this.e < 2.121303490395155) return this.toNumber().toFixed(d);
+		return this.toString();
 	}
 	get layer() { return Math.sign(this.e) * Math.floor(Math.abs(this.e)); }
 	get mag() { return Math.abs(this.e - this.layer); }
@@ -273,6 +337,8 @@ export default class HugeNumber
 	pow10() { return HugeNumber.pow10(this); }
 	floor() { return HugeNumber.floor(this); }
 	ceil() { return HugeNumber.ceil(this); }
+	neg() { return HugeNumber.neg(this); }
+	abs() { return HugeNumber.abs(this); }
 	log(b)
 	{
 		return HugeNumber.div(HugeNumber.log10(this), HugeNumber.log10(b));
